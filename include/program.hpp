@@ -99,10 +99,8 @@ inline bool Program<InstructionSet, N, K, T>::execute(FullState<N, K, T>& full_s
         return false;
     }
     
-    auto& instruction = const_cast<InstructionSetType&>(instructions[full_state.instructionPointer()]);
-    std::visit([&full_state](auto& inst) {
-        inst.execute(full_state);
-    }, static_cast<typename InstructionSetType::Base&>(instruction));
+    const auto& instruction = instructions[full_state.instructionPointer()];
+    const_cast<InstructionSetType&>(instruction).execute(full_state);
     
     // Check instruction pointer after execution, as instruction may have modified it
     return full_state.instructionPointer() < instructions.size();

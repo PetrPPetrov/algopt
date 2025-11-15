@@ -958,11 +958,5 @@ inline std::string B1::Dec<N, K, T>::dump(unsigned line_number) const {
     return oss.str();
 }
 
-// Dump method for InstructionSet
-template<unsigned N, unsigned K, unsigned T>
-inline std::string B1::InstructionSet<N, K, T>::dump(unsigned line_number) const {
-    return std::visit([line_number](const auto& inst) {
-        return inst.dump(line_number);
-    }, static_cast<const Base&>(*this));
-}
+// Dump method for InstructionSet is already implemented inline in instructions.h
 

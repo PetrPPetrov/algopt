@@ -2,7 +2,6 @@
 // License: https://github.com/PetrPPetrov/algopt/blob/main/LICENSE
 
 #include "fabric.h"
-#include <variant>
 #include <sstream>
 #include <string>
 
@@ -31,9 +30,7 @@ inline typename Fabric<InstructionSet, N, K, T>::ProgramType Fabric<InstructionS
         InstructionSetType instruction = InstructionSetType::getCombination(combination_index, getProgramLen());
         
         // Add the instruction to the program
-        std::visit([&program](auto&& inst) {
-            program.add(inst);
-        }, static_cast<typename InstructionSetType::Base&>(instruction));
+        program.add(instruction);
     }
     
     return program;
