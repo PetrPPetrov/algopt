@@ -9,6 +9,9 @@
 #include <cstdint>
 #include <functional>
 #include <limits>
+#include <list>
+#include <iostream>
+#include <utility>
 #include "executor.h"
 #include "executor.hpp"
 #include "fabric.h"
@@ -95,9 +98,11 @@ inline void Optimize<InstructionSet, N, K, T>::forEachInputCombination(Callback&
 }
 
 // Check if two programs produce same output for all input combinations
+// If candidate is valid, also calculate and return total steps via output parameter
 template<template<unsigned, unsigned, unsigned> class InstructionSet, unsigned N, unsigned K, unsigned T>
-inline bool Optimize<InstructionSet, N, K, T>::producesSameOutput(const ProgramType& candidate) const {
+inline bool Optimize<InstructionSet, N, K, T>::producesSameOutput(const ProgramType& candidate, std::uint64_t& candidate_total_steps) const {
     bool all_match = true;
+    candidate_total_steps = 0;
     
     forEachInputCombination([&](const InputVariablesType& input) {
         if (!all_match) {
@@ -106,8 +111,46 @@ inline bool Optimize<InstructionSet, N, K, T>::producesSameOutput(const ProgramT
         
         std::uint64_t original_steps, candidate_steps;
         
-        OutputVariablesType original_output = executeAndCountSteps(original_program, input, original_steps);
-        OutputVariablesType candidate_output = executeAndCountSteps(candidate, input, candidate_steps);
+        // Execute original program
+        RabbitTurtle<InstructionSet, N, K, T> rt_original(original_program, input);
+        rt_original.start();
+        original_steps = 0;
+        const std::uint64_t max_steps = 1000000;
+        bool original_infinite = false;
+        
+        while (rt_original.execute()) {
+            ++original_steps;
+            if (rt_original.isInfiniteLoopDetected() || original_steps > max_steps) {
+                original_infinite = true;
+                break;
+            }
+        }
+        
+        // Execute candidate program
+        RabbitTurtle<InstructionSet, N, K, T> rt_candidate(candidate, input);
+        rt_candidate.start();
+        candidate_steps = 0;
+        bool candidate_infinite = false;
+        
+        while (rt_candidate.execute()) {
+            ++candidate_steps;
+            if (rt_candidate.isInfiniteLoopDetected() || candidate_steps > max_steps) {
+                candidate_infinite = true;
+                break;
+            }
+        }
+        
+        // Accumulate candidate steps (only if program is valid)
+        candidate_total_steps += candidate_steps;
+        
+        // If one program gets stuck but the other doesn't, they're not equivalent
+        if (original_infinite != candidate_infinite) {
+            all_match = false;
+            return;
+        }
+        
+        OutputVariablesType original_output = rt_original.getOutput();
+        OutputVariablesType candidate_output = rt_candidate.getOutput();
         
         // Compare output variables (ignore temp variables)
         for (unsigned i = 0; i < K; ++i) {
@@ -121,35 +164,32 @@ inline bool Optimize<InstructionSet, N, K, T>::producesSameOutput(const ProgramT
     return all_match;
 }
 
-// Calculate average step count for all input combinations
+// Calculate total step count for all input combinations
 template<template<unsigned, unsigned, unsigned> class InstructionSet, unsigned N, unsigned K, unsigned T>
-inline double Optimize<InstructionSet, N, K, T>::calculateAverageSteps(const ProgramType& program) const {
+inline std::uint64_t Optimize<InstructionSet, N, K, T>::calculateAverageSteps(const ProgramType& program) const {
     std::uint64_t total_steps = 0;
-    std::uint64_t valid_runs = 0;
     
     forEachInputCombination([&](const InputVariablesType& input) {
         std::uint64_t step_count;
         executeAndCountSteps(program, input, step_count);
         total_steps += step_count;
-        ++valid_runs;
     });
     
-    if (valid_runs == 0) {
-        return std::numeric_limits<double>::max();
-    }
-    
-    return static_cast<double>(total_steps) / static_cast<double>(valid_runs);
+    return total_steps;
 }
 
 // Find optimized program
 template<template<unsigned, unsigned, unsigned> class InstructionSet, unsigned N, unsigned K, unsigned T>
 inline typename Optimize<InstructionSet, N, K, T>::ProgramType
 Optimize<InstructionSet, N, K, T>::speed(unsigned maxProgramSize) {
-    // Calculate average steps for original program
-    double original_avg_steps = calculateAverageSteps(original_program);
+    // Calculate total steps for original program
+    std::uint64_t original_total_steps = calculateAverageSteps(original_program);
     
     ProgramType best_program = original_program;
-    double best_avg_steps = original_avg_steps;
+    std::uint64_t best_total_steps = original_total_steps;
+    
+    // Container to store all valid programs with their step counts
+    std::list<std::pair<ProgramType, std::uint64_t>> valid_programs;
     
     // Search through all possible program sizes from 1 to maxProgramSize
     for (unsigned program_size = 1; program_size <= maxProgramSize; ++program_size) {
@@ -163,31 +203,43 @@ Optimize<InstructionSet, N, K, T>::speed(unsigned maxProgramSize) {
             ProgramType candidate = fabric.generate();
             ++checked_count;
             
-            // Check if candidate produces same output
-            if (producesSameOutput(candidate)) {
+            // Check if candidate produces same output and get total steps
+            std::uint64_t candidate_total_steps = 0;
+            if (producesSameOutput(candidate, candidate_total_steps)) {
                 ++valid_count;
-                // Calculate average steps for candidate
-                double candidate_avg_steps = calculateAverageSteps(candidate);
+                // Add to list of valid programs with step count
+                valid_programs.push_back(std::make_pair(candidate, candidate_total_steps));
                 
                 // If candidate is better, update best
-                if (candidate_avg_steps < best_avg_steps) {
+                if (candidate_total_steps < best_total_steps) {
                     std::cout << "Found better program (size " << program_size 
-                              << ", avg steps: " << candidate_avg_steps 
-                              << " < " << best_avg_steps << ")" << std::endl;
+                              << ", total steps: " << candidate_total_steps 
+                              << " < " << best_total_steps << ")" << std::endl;
                     best_program = candidate;
-                    best_avg_steps = candidate_avg_steps;
+                    best_total_steps = candidate_total_steps;
                 }
             }
             
             // Print progress every 100 programs
             if (checked_count % 100 == 0) {
                 std::cout << "  Checked " << checked_count << " programs, found " 
-                          << valid_count << " valid, best avg steps: " << best_avg_steps << std::endl;
+                          << valid_count << " valid, best total steps: " << best_total_steps << std::endl;
             }
         } while (fabric.next());
         
         std::cout << "Size " << program_size << " complete: checked " << checked_count 
                   << " programs, found " << valid_count << " valid" << std::endl;
+    }
+    
+    // Output all valid programs
+    std::cout << "\n=== All Valid Programs (" << valid_programs.size() << " total) ===" << std::endl;
+    std::uint64_t program_index = 0;
+    for (const auto& program_pair : valid_programs) {
+        const auto& program = program_pair.first;
+        std::uint64_t program_steps = program_pair.second;
+        std::cout << "\n--- Valid Program #" << program_index << " (total steps: " << program_steps << ") ---" << std::endl;
+        std::cout << program.dump() << std::endl;
+        ++program_index;
     }
     
     return best_program;

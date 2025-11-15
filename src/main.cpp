@@ -4,6 +4,8 @@
 #include <iostream>
 #include "B0/instructions.h"
 #include "B1/instructions.h"
+#include "B0/instructions.hpp"
+#include "B1/instructions.hpp"
 #include "address.hpp"
 #include "fabric.h"
 #include "fabric.hpp"
@@ -199,6 +201,11 @@ void demonstrateOptimization() {
     
     // Program ends here
     
+    // Create Fabric to get last program ID
+    Fabric<B1::InstructionSet, N, K, T> fabric(reference_program.size());
+    std::cout << "Reference program length: " << reference_program.size() << std::endl;
+    std::cout << "Last program ID: " << fabric.getLastProgramStrId() << std::endl;
+    
     std::cout << "Reference program (sum using loop with Inc/Dec):" << std::endl;
     std::cout << reference_program.dump() << std::endl;
     
@@ -222,19 +229,21 @@ void demonstrateOptimization() {
     std::cout << "Reference program result: " << static_cast<unsigned>(rt.getOutput().values[0]) << std::endl;
     std::cout << "Expected sum: " << (static_cast<unsigned>(test_input.values[0]) + static_cast<unsigned>(test_input.values[1])) << std::endl;
     
-    // Calculate and display average steps for reference program
+    // Calculate and display total steps for reference program
     Optimize<B1::InstructionSet, N, K, T> optimizer(reference_program);
-    double reference_avg_steps = optimizer.calculateAverageSteps(reference_program);
-    std::cout << "Reference program average steps: " << reference_avg_steps << std::endl;
+    std::uint64_t reference_total_steps = optimizer.calculateAverageSteps(reference_program);
+    std::cout << "Reference program total steps: " << reference_total_steps << std::endl;
     
-    // Optimization temporarily disabled
-    /*
+    // Display last program ID for program length = 1 (optimization search space)
+    constexpr unsigned max_program_size = 1;
+    Fabric<B1::InstructionSet, N, K, T> fabric_opt(max_program_size);
+    std::cout << "Last program ID for length " << max_program_size << ": " << fabric_opt.getLastProgramStrId() << std::endl;
+    
     // Now try to optimize
     std::cout << "\nAttempting optimization (max program size: 1 instruction)..." << std::endl;
     std::cout << "This may take a while..." << std::endl;
     
     // Search for programs up to size 1
-    constexpr unsigned max_program_size = 1;
     Program<B1::InstructionSet, N, K, T> optimized_program = optimizer.speed(max_program_size);
     
     std::cout << "\nOptimized program:" << std::endl;
@@ -257,5 +266,5 @@ void demonstrateOptimization() {
     
     std::cout << "Optimized program result: " << static_cast<unsigned>(rt_opt.getOutput().values[0]) << std::endl;
     std::cout << "Expected sum: " << (static_cast<unsigned>(test_input_opt.values[0]) + static_cast<unsigned>(test_input_opt.values[1])) << std::endl;
-    */
 }
+

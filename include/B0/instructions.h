@@ -213,5 +213,3 @@ namespace std {
     template<std::size_t I, unsigned N, unsigned K, unsigned T>
     struct variant_alternative<I, B0::InstructionSet<N, K, T>> : variant_alternative<I, typename B0::InstructionSet<N, K, T>::Base> {};
 }
-
-#include "instructions.hpp"

@@ -23,8 +23,8 @@ public:
     // Returns optimized program (or original if no better found)
     ProgramType speed(unsigned maxProgramSize);
     
-    // Calculate average step count for all input combinations
-    double calculateAverageSteps(const ProgramType& program) const;
+    // Calculate total step count for all input combinations
+    std::uint64_t calculateAverageSteps(const ProgramType& program) const;
 
 private:
     const ProgramType& original_program;
@@ -35,7 +35,8 @@ private:
                                              std::uint64_t& step_count) const;
     
     // Check if two programs produce same output for all input combinations
-    bool producesSameOutput(const ProgramType& candidate) const;
+    // If candidate is valid, also calculate and return total steps via output parameter
+    bool producesSameOutput(const ProgramType& candidate, std::uint64_t& candidate_total_steps) const;
     
     // Helper: iterate through all input combinations and call callback for each
     template<typename Callback>
