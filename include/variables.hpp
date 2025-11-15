@@ -6,7 +6,7 @@
 // Constructors
 template<unsigned N, unsigned K, unsigned T>
 inline Variables<N, K, T>::Variables(const InputVariables<N>& input_arg)
-    : input(input_arg) {
-    // Output and temp variables are already zero-initialized by default
+    : input(input_arg), output{}, temp{} {
+    // Output and temp variables are explicitly zero-initialized
 }
 

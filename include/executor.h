@@ -28,6 +28,9 @@ public:
     // Returns false if program is finished, true otherwise
     bool execute();
 
+    // Dump current state: variables and program with current instruction marked
+    std::string dump() const;
+
 private:
     const ProgramType& program;
     FullStateType full_state;

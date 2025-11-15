@@ -31,9 +31,16 @@ public:
     // Start execution
     void start();
 
+    // Start execution and dump rabbit executor state
+    std::string startDump();
+
     // Execute one iteration: rabbit makes 2 steps, turtle makes 1 step
     // Returns false if program is finished, true otherwise
     bool execute();
+
+    // Execute one iteration and dump rabbit executor state after each rabbit step
+    // Returns false if program is finished, true otherwise
+    bool executeDump(std::string& dump_after_first_step, std::string& dump_after_second_step);
 
     // Check if infinite loop was detected
     bool isInfiniteLoopDetected() const;
